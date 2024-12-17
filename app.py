@@ -22,7 +22,10 @@ class PersonalAssistantBot:
         self.personal_info = self._extract_pdf_text(pdf_path)
         
         # Initialize Gemini model
-        self.model = genai.GenerativeModel('gemini-pro')
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.5
+        )
+        self.model = genai.GenerativeModel('gemini-pro', generation_config=generation_config)
         
         # Context management
         self.context_memory = {
