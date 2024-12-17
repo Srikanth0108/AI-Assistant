@@ -5,7 +5,8 @@ import google.generativeai as genai
 import PyPDF2
 import streamlit as st
 import json
-
+from dotenv import load_dotenv
+load_dotenv()
 class PersonalAssistantBot:
     def __init__(self, pdf_path: str, api_key: str):
         """
@@ -33,14 +34,14 @@ class PersonalAssistantBot:
         # Predefined conversation templates
         self.conversation_templates = {
             "greeting": [
-                "Hi there! I'm Srikanth's personal AI assistant. How can I help you today?",
-                "Hello! I'm ready to assist you with any questions you might have.",
-                "Greetings! What would you like to know about Srikanth?"
+                "Hello! I'm Srikanth's personal AI assistant and I'm here to help you learn more about him. What would you like to know?",
+                "Hi there! I'm the AI assistant dedicated to sharing information about Srikanth. How can I assist you today?",
+                "Welcome! I'm Srikanth's personal AI assistant, I'd be happy to tell you more about his background and experiences. What interests you?"
             ],
             "follow_up": [
-                "Is there anything else you'd like to know?",
-                "Feel free to ask me more!",
-                "I'm happy to provide more details if you're interested."
+                "Is there anything specific about Srikanth's experience or background you'd like to know more about?",
+                "I'd be happy to share more details about any aspect of Srikanth's profile. What else interests you?",
+                "Feel free to ask about any other aspects of Srikanth's background or achievements!"
             ]
         }
     
@@ -146,34 +147,62 @@ class PersonalAssistantBot:
     
     def _build_context_prompt(self, user_query: str, chat_history: List[Dict] = None) -> str:
         """
-        Build a comprehensive context-aware prompt
+        Build a comprehensive context-aware prompt that creates a more personal and assistant-like interaction
         
         :param user_query: Current user query
         :param chat_history: Previous conversation context
         :return: Structured prompt for Gemini
         """
-        context_parts = [
-            f"Personal Information Profile:\n{self.personal_info}",
-            f"User Preferences: {json.dumps(self.context_memory['user_preferences'])}",
-            f"Conversation Tone: {self.context_memory['conversation_tone']}",
-            f"Previous Conversation Topics: {', '.join(self.context_memory['previous_topics'])}",
-            f"Current Query: {user_query}"
+        base_persona = """
+        You are Srikanth's personal AI assistant. Your role is to be helpful, friendly, and knowledgeable about Srikanth's background and experiences. When responding:
+        - Maintain a warm, professional tone while being conversational
+        - Draw from the provided personal information to give accurate, relevant answers
+        - Show enthusiasm when discussing Srikanth's achievements and experiences
+        - If asked about something not in your knowledge base, politely acknowledge the limitation
+        - Use natural transitions and conversational markers (e.g., "Actually...", "You know...", "Interestingly...")
+        - Occasionally reference previous parts of the conversation to show active listening
+        - End responses with gentle encouragement for follow-up questions when appropriate
+        """
+        
+        context_sections = {
+            "Personal Background": self.personal_info,
+            "Interaction Style": {
+                "Tone": self.context_memory['conversation_tone'],
+                "Communication Preferences": self.context_memory['user_preferences']['communication_style'],
+                "Languages": self.context_memory['user_preferences']['languages']
+            },
+            "Conversation Context": {
+                "Previous Topics": self.context_memory['previous_topics'],
+                "Current Query": user_query
+            }
+        }
+        
+        response_guidelines = """
+        Response Guidelines:
+        1. Start responses naturally, avoiding robotic or overly formal language
+        2. Include relevant details from Srikanth's background when applicable
+        3. Keep answers concise but informative
+        4. Use a friendly, conversational tone while maintaining professionalism
+        5. If the query is unclear, ask for clarification politely
+        6. Acknowledge and build upon any previous context from the conversation
+        7. Show genuine interest in helping the user understand about Srikanth
+        """
+        
+        # Build the comprehensive prompt
+        prompt_parts = [
+            base_persona,
+            "\nContext Information:",
+            json.dumps(context_sections, indent=2),
+            response_guidelines
         ]
         
         if chat_history:
-            context_parts.append("Recent Conversation History:")
-            for msg in chat_history[-3:]:  # Include last 3 messages for context
-                context_parts.append(f"{msg['role']}: {msg['content']}")
+            recent_context = "\nRecent Conversation:"
+            for msg in chat_history[-3:]:
+                recent_context += f"\n{msg['role']}: {msg['content']}"
+            prompt_parts.append(recent_context)
         
-        comprehensive_prompt = "\n\n".join(context_parts) + "\n\nResponse Guidelines:\n" + """
-        1. Be conversational and natural
-        2. Refer to the personal information context
-        3. Maintain a consistent tone
-        4. Provide concise and relevant answers
-        5. If unsure, ask for clarification
-        """
-        
-        return comprehensive_prompt
+        return "\n\n".join(prompt_parts)
     
     def _update_context(self, user_query: str):
         """
@@ -276,7 +305,7 @@ def create_streamlit_interface(assistant: PersonalAssistantBot):
 
 def main():
     # Replace with your actual Google Gemini API key
-    API_KEY = 'AIzaSyBz-r-DCBjQn2bU1AROkd490rmAixcQgAE'
+    API_KEY = os.getenv('GOOGLE_API_KEY')
     
     # Replace with the path to your personal information PDF
     PDF_PATH = 'SrikanthResume.pdf'
